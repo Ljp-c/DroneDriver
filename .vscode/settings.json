@@ -1,0 +1,4 @@
+{
+    "cmake.sourceDirectory": "D:/stm32/freertos薄板/FreeRTOS-Kernel/examples/cmake_example",
+    "C_Cpp.dimInactiveRegions": true
+}
