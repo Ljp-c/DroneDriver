@@ -81,7 +81,7 @@ error_code_t pid_mode_down_accel_const(float current_acc_x, float current_height
 error_code_t pid_mode_down_speed_const(float current_speed, float current_height, float *pwm_out);
 
 /* 5. 悬停 */
-error_code_t pid_mode_hover(float target_height, float current_height, float acc_z, float *pwm_out);
+error_code_t pid_mode_hover(float target_height, float current_height, float current_velocity_z, float *pwm_out);
 
 /* 6. X轴水平匀速飞行 */
 error_code_t pid_mode_x_speed_const(float current_speed_x, float pitch_angle, float *pwm_out);

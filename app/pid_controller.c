@@ -300,14 +300,28 @@ error_code_t pid_mode_down_speed_const(float current_speed, float current_height
 }
 
 /* 5. 悬停: 高度 + 姿态 */
-error_code_t pid_mode_hover(float target_height, float current_height, float acc_z, float *pwm_out)
+error_code_t pid_mode_hover(float target_height, float current_height, float current_velocity_z, float *pwm_out)
 {
-    (void)acc_z; /* 可加入高度D项 */
     if (pwm_out == NULL) return ERR_NULL_POINTER;
 
-    *pwm_out = Accel_controler(target_height-current_height, Z_ACCLE_INDEX);
+    /* 高度环PID - 将高度误差转换为加速度指令 */
+    float height_error = target_height - current_height;
+    
+    /* 计算目标加速度（P项用于恢复高度，D项用于平滑） */
+    float kp_height = 2.0f;   /* 高度环P增益 */
+    float kd_height = 1.5f;   /* 高度环D增益 */
+    
+    float acc_target = kp_height * height_error - kd_height * current_velocity_z;
+    
+    /* 饱和限制加速度指令 */
+    if (acc_target > 5.0f) acc_target = 5.0f;      /* 最大±5 m/s² */
+    if (acc_target < -5.0f) acc_target = -5.0f;
+    
+    /* 调用加速度控制器 */
+    *pwm_out = Accel_controler(acc_target, Z_ACCLE_INDEX);
+    
     return ERR_OK;
-}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+}
 
 /* 6. X轴水平匀速: 目标 0.5m/s -> 控制 PA0/PA1 */
 error_code_t pid_mode_x_speed_const(float current_speed_x, float pitch_angle, float *pwm_out)
