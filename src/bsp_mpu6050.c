@@ -27,6 +27,7 @@ uint8_t bsp_mpu6050_init(const mpu6050_config_t *config)
 {
     uint8_t id = 0;
     uint8_t err;
+    uint8_t retry = 0;
     
     /* 检查参数 */
     if(config != NULL) {
@@ -38,18 +39,32 @@ uint8_t bsp_mpu6050_init(const mpu6050_config_t *config)
         s_gyro_range = MPU6050_GYRO_RANGE_250DPS;
     }
     
-    /* 复位MPU6050 */
-    err = bsp_i2c_write_byte(MPU6050_ADDR, MPU6050_REG_PWR_MGMT_1, 0x80);
+    /* 复位MPU6050（带重试） */
+    retry = 3;
+    while (retry--) {
+        err = bsp_i2c_write_byte(MPU6050_ADDR, MPU6050_REG_PWR_MGMT_1, 0x80);
+        if(err == ERR_OK) break;
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
     if(err != ERR_OK) {
         return ERR_MPU6050_INIT_FAILED;
     }
     
-    /* 延时等待复位完成 */
-    for(volatile uint32_t i = 0; i < 100000; i++);
+    /* 使用FreeRTOS精确延时等待复位完成 */
+    vTaskDelay(pdMS_TO_TICKS(100));
     
-    /* 检查芯片ID */
-    err = bsp_i2c_read_reg(MPU6050_ADDR, MPU6050_REG_WHO_AM_I, &id, 1);
-    if(err != ERR_OK || id != MPU6050_DEVICE_ID) {
+    /* 检查芯片ID（带重试） */
+    retry = 3;
+    while (retry--) {
+        err = bsp_i2c_read_reg(MPU6050_ADDR, MPU6050_REG_WHO_AM_I, &id, 1);
+        if(err == ERR_OK && id == MPU6050_DEVICE_ID) break;
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    
+    if(err != ERR_OK) {
+        return ERR_MPU6050_I2C_READ;
+    }
+    if(id != MPU6050_DEVICE_ID) {
         return ERR_MPU6050_ID_MISMATCH;
     }
     
