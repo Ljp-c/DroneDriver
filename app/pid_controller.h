@@ -29,6 +29,17 @@ extern "C" {
 #define PID_INTEGRAL_MAX            50.0f       /**< 积分限幅最大值 */
 #define PID_DT                      0.01f       /**< 控制周期 10ms */
 #define CTRL_MODE_MAX               9           /**< 最大控制模式数量 */
+
+/* 控制模式枚举 */
+#define CTRL_MODE_UP_ACCEL_CONST    0   /**< 上升恒定加速度 */
+#define CTRL_MODE_UP_SPEED_CONST    1   /**< 上升匀速 */
+#define CTRL_MODE_DOWN_ACCEL_CONST  2   /**< 下降恒定加速度 */
+#define CTRL_MODE_DOWN_SPEED_CONST  3   /**< 下降匀速 */
+#define CTRL_MODE_HOVER             4   /**< 悬停 */
+#define CTRL_MODE_X_SPEED_CONST     5   /**< X轴水平匀速 */
+#define CTRL_MODE_X_ACCEL_CONST     6   /**< X轴水平加速 */
+#define CTRL_MODE_Y_SPEED_CONST     7   /**< Y轴水平匀速 */
+#define CTRL_MODE_Y_ACCEL_CONST     8   /**< Y轴水平加速 */
 /*==============================================================================
  * 类型定义
  *============================================================================*/

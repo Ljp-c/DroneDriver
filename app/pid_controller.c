@@ -163,19 +163,83 @@ static float Accel_controler(float acc_target, globedata index)
 
 error_code_t pid_controller_init(void)
 {
-    /* 初始化参数 (示例值，实际需调试) */
-    for(int i=0; i<CTRL_MODE_MAX; i++) {
-        s_params[i].kp = 1.0f; 
-        s_params[i].ki = 0.1f; 
-        s_params[i].kd = 0.05f;
-        s_params[i].i_limit = 50.0f;
-        s_params[i].out_limit = 100.0f;
-        s_params[i].d_alpha = 0.2f;
-        s_states[i].integral = 0; 
-        s_states[i].last_error = 0;
+    /* 参数初始化：针对不同控制模式设置不同增益
+     * 说明）这些参数需要在实际系统上进行调试和优化
+     * 参考资料：经验PID参数整定方法（Ziegler-Nichols、遗传算法等）
+     */
+    
+    /* 默认参数模板（快速响应，较强阻尼） */
+    float default_kp = 2.0f;
+    float default_ki = 0.08f;
+    float default_kd = 0.6f;
+    float default_i_limit = 15.0f;
+    float default_out_limit = 100.0f;
+    float default_d_alpha = 0.25f;
+    
+    for(int i = 0; i < CTRL_MODE_MAX; i++) {
+        s_params[i].kp = default_kp;
+        s_params[i].ki = default_ki;
+        s_params[i].kd = default_kd;
+        s_params[i].i_limit = default_i_limit;
+        s_params[i].out_limit = default_out_limit;
+        s_params[i].d_alpha = default_d_alpha;
+        
+        s_states[i].integral = 0.0f;
+        s_states[i].last_error = 0.0f;
         s_states[i].d_lpf = 0.0f;
         s_states[i].last_output = 0.0f;
     }
+    
+    /* 为各模式设置针对性参数（可根据实际飞测结果进行微调）*/
+    
+    /* 模式0: 向上恒定加速度 */
+    s_params[CTRL_MODE_UP_ACCEL_CONST].kp = 2.5f;
+    s_params[CTRL_MODE_UP_ACCEL_CONST].ki = 0.05f;
+    s_params[CTRL_MODE_UP_ACCEL_CONST].kd = 0.8f;
+    s_params[CTRL_MODE_UP_ACCEL_CONST].d_alpha = 0.2f;
+    
+    /* 模式1: 向上匀速 */
+    s_params[CTRL_MODE_UP_SPEED_CONST].kp = 3.0f;
+    s_params[CTRL_MODE_UP_SPEED_CONST].ki = 0.08f;
+    s_params[CTRL_MODE_UP_SPEED_CONST].kd = 0.6f;
+    s_params[CTRL_MODE_UP_SPEED_CONST].d_alpha = 0.25f;
+    
+    /* 模式2: 向下恒定加速度 */
+    s_params[CTRL_MODE_DOWN_ACCEL_CONST].kp = 2.5f;
+    s_params[CTRL_MODE_DOWN_ACCEL_CONST].ki = 0.05f;
+    s_params[CTRL_MODE_DOWN_ACCEL_CONST].kd = 0.8f;
+    
+    /* 模式3: 向下匀速 */
+    s_params[CTRL_MODE_DOWN_SPEED_CONST].kp = 3.0f;
+    s_params[CTRL_MODE_DOWN_SPEED_CONST].ki = 0.08f;
+    s_params[CTRL_MODE_DOWN_SPEED_CONST].kd = 0.6f;
+    
+    /* 模式4: 悬停（需要最强稳定性） */
+    s_params[CTRL_MODE_HOVER].kp = 2.0f;
+    s_params[CTRL_MODE_HOVER].ki = 0.12f;    /* 较强积分 */
+    s_params[CTRL_MODE_HOVER].kd = 1.0f;     /* 很强阻尼 */
+    s_params[CTRL_MODE_HOVER].d_alpha = 0.15f;
+    
+    /* 模式5: X轴速度控制 */
+    s_params[CTRL_MODE_X_SPEED_CONST].kp = 2.8f;
+    s_params[CTRL_MODE_X_SPEED_CONST].ki = 0.06f;
+    s_params[CTRL_MODE_X_SPEED_CONST].kd = 0.7f;
+    
+    /* 模式6: X轴加速度控制 */
+    s_params[CTRL_MODE_X_ACCEL_CONST].kp = 2.4f;
+    s_params[CTRL_MODE_X_ACCEL_CONST].ki = 0.04f;
+    s_params[CTRL_MODE_X_ACCEL_CONST].kd = 0.75f;
+    
+    /* 模式7: Y轴速度控制 */
+    s_params[CTRL_MODE_Y_SPEED_CONST].kp = 2.8f;
+    s_params[CTRL_MODE_Y_SPEED_CONST].ki = 0.06f;
+    s_params[CTRL_MODE_Y_SPEED_CONST].kd = 0.7f;
+    
+    /* 模式8: Y轴加速度控制 */
+    s_params[CTRL_MODE_Y_ACCEL_CONST].kp = 2.4f;
+    s_params[CTRL_MODE_Y_ACCEL_CONST].ki = 0.04f;
+    s_params[CTRL_MODE_Y_ACCEL_CONST].kd = 0.75f;
+    
     return ERR_OK;
 }
 
