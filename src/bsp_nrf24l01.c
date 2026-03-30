@@ -118,17 +118,35 @@ static void bsp_nrf24l01_spi_periph_init(void)
  */
 static uint8_t bsp_nrf24l01_spi_transfer_byte(uint8_t byte)
 {
+    uint8_t received = 0xFF;
+    
+    /* 检查互斥锁是否初始化 */
+    if (s_spi_mutex == NULL) {
+        return 0xFF;  /* 错误：互斥锁未初始化 */
+    }
+    
+    /* 获取互斥锁 */
+    if (xSemaphoreTake(s_spi_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+        return 0xFF;  /* 超时 */
+    }
+    
+    /* 临界区：SPI数据传输 */
     /* 等待发送缓冲区为空 */
     while (SPI_I2S_GetFlagStatus(NRF24L01_SPI, SPI_I2S_FLAG_TXE) == RESET);
     
-    /* 读取数据 */
+    /* 发送数据 */
     SPI_I2S_SendData(NRF24L01_SPI, byte);
     
     /* 等待接收缓冲区非空 */
     while (SPI_I2S_GetFlagStatus(NRF24L01_SPI, SPI_I2S_FLAG_RXNE) == RESET);
     
-    /* 数取读取数据 */
-    return SPI_I2S_ReceiveData(NRF24L01_SPI);
+    /* 读取接收数据 */
+    received = SPI_I2S_ReceiveData(NRF24L01_SPI);
+    
+    /* 释放互斥锁 */
+    xSemaphoreGive(s_spi_mutex);
+    
+    return received;
 }
 
 /**
