@@ -48,7 +48,8 @@ typedef struct
     float d_lpf;
     float integral;
     float last_error;
-    float prev_input; /* 用于微分滤波 */
+    float last_output;     /* 上次输出值 */
+    float prev_input;      /* 用于微分滤波 */
 } pid_state_t;
 
 /*==============================================================================

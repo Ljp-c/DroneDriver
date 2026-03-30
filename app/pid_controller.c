@@ -29,20 +29,21 @@ static float inner_ring(float acc_target, float dt, globedata index)
     float acc_measure = Global_message[index];  // 角加速度测量
     float error = acc_target - acc_measure;
 
-    /* 只有P项（内环快速响应） */
-    float output = s_params->kp * error;
+    /* P项：比例控制 */
+    float p_term = s_params->kp * error;
 
-    /* 输出限幅 */
-    // output = CLAMP(output, -s_params->out_limit, s_params->out_limit);
-    /* 输出限幅 */
-// if (output >  s_params->out_limit)
-//     output =  s_params->out_limit;
-// else if (output < -s_params->out_limit)
-//     output = -s_params->out_limit;
-    float output = s_params->kp * error ;
+    /* I项：积分控制 */
+    float i_term = s_params->ki * s_states->integral;
 
-    /* 判断是否应该停止积分 */
-    bool is_saturated = (output >  s_params->out_limit) ||
+    /* D项：微分控制 */
+    float d_term = s_params->kd * (error - s_states->last_error);
+    d_term = s_params->d_alpha * d_term + (1.0f - s_params->d_alpha) * d_term;
+
+    /* 合成输出 */
+    float output = p_term + i_term + d_term;
+
+    /* 判断是否应该停止积分（抗积分饱和） */
+    bool is_saturated = (output > s_params->out_limit) ||
                         (output < -s_params->out_limit);
     bool same_sign = ((error > 0.0f) && (s_states->integral > 0.0f)) ||
                     ((error < 0.0f) && (s_states->integral < 0.0f));
@@ -51,16 +52,27 @@ static float inner_ring(float acc_target, float dt, globedata index)
     if (!(is_saturated && same_sign))
     {
         s_states->integral += error * dt;
+        
+        /* 积分限幅 */
+        if (s_states->integral > s_params->i_limit) {
+            s_states->integral = s_params->i_limit;
+        } else if (s_states->integral < -s_params->i_limit) {
+            s_states->integral = -s_params->i_limit;
+        }
     }
 
-    /* 更新输出并限幅 */
-    output = s_params->kp ;
-    if (output >  s_params->out_limit)  output =  s_params->out_limit;
-    if (output < -s_params->out_limit)  output = -s_params->out_limit;
+    /* 输出限幅 */
+    if (output > s_params->out_limit) {
+        output = s_params->out_limit;
+    } else if (output < -s_params->out_limit) {
+        output = -s_params->out_limit;
+    }
+
+    /* 更新上次误差用于D项计算 */
+    s_states->last_error = error;
 
     return output;
-        return output;
-    }
+}
         
 /**
  * @brief 外环控制器（速度环）
@@ -131,33 +143,100 @@ static float outer_ring(float vel_target, globedata index, float dt)
 /**
  * @brief 速度控制器
  * @param vel_target   目标速度
- * @return 返回控制错误码
+ * @return 返回目标加速度
  */
- static error_code_t Speed_controler(float vel_target)
+static float Speed_controler(float vel_target)
 {
-        float acc_target = outer_ring(vel_target, globedata_vel, dt);
-        return inner_ring(acc_target, dt, globedata_acc);
-
+    float acc_target = outer_ring(vel_target, globedata_vel, dt);
+    return acc_target;
 }
+
 /**
  * @brief 加速度控制器
  * @param acc_target   目标加速度   
- * @return 返回控制错误码
+ * @return 返回PWM输出值
  */
-static error_code_t Accel_controler(float acc_target, globedata index)
+static float Accel_controler(float acc_target, globedata index)
 {
-        return inner_ring(acc_target, dt, Global_message[index]);
-
+    return inner_ring(acc_target, dt, index);
 }
 
 error_code_t pid_controller_init(void)
 {
     /* 初始化参数 (示例值，实际需调试) */
     for(int i=0; i<CTRL_MODE_MAX; i++) {
-        s_params[i].kp = 1.0f; s_params[i].ki = 0.1f; s_params[i].kd = 0.05f;
-        s_states[i].integral = 0; s_states[i].last_error = 0;
+        s_params[i].kp = 1.0f; 
+        s_params[i].ki = 0.1f; 
+        s_params[i].kd = 0.05f;
+        s_params[i].i_limit = 50.0f;
+        s_params[i].out_limit = 100.0f;
+        s_params[i].d_alpha = 0.2f;
+        s_states[i].integral = 0; 
+        s_states[i].last_error = 0;
+        s_states[i].d_lpf = 0.0f;
+        s_states[i].last_output = 0.0f;
     }
     return ERR_OK;
+}
+
+/**
+ * @brief PID计算核心函数（通用）
+ * @param state    PID状态结构体
+ * @param params   PID参数结构体
+ * @param target   目标值
+ * @param measure  测量值
+ * @return 返回PID输出
+ */
+static float pid_calc_core(pid_state_t *state, pid_param_t *params, 
+                          float target, float measure)
+{
+    if (state == NULL || params == NULL) return 0.0f;
+    
+    float error = target - measure;
+
+    /* P项 */
+    float p_term = params->kp * error;
+
+    /* I项 */
+    float i_term = params->ki * state->integral;
+
+    /* D项 */
+    float d_term = params->kd * (error - state->last_error);
+    d_term = params->d_alpha * d_term + (1.0f - params->d_alpha) * state->d_lpf;
+    state->d_lpf = d_term;
+
+    /* 合成输出 */
+    float output = p_term + i_term + d_term;
+
+    /* 抗积分饱和 */
+    bool is_saturated = (output > params->out_limit) || 
+                        (output < -params->out_limit);
+    bool same_sign = (error > 0.0f && state->integral > 0.0f) || 
+                     (error < 0.0f && state->integral < 0.0f);
+
+    if (!(is_saturated && same_sign)) {
+        state->integral += error * dt;
+        
+        /* 积分限幅 */
+        if (state->integral > params->i_limit) {
+            state->integral = params->i_limit;
+        } else if (state->integral < -params->i_limit) {
+            state->integral = -params->i_limit;
+        }
+    }
+
+    /* 输出限幅 */
+    if (output > params->out_limit) {
+        output = params->out_limit;
+    } else if (output < -params->out_limit) {
+        output = -params->out_limit;
+    }
+
+    /* 更新上次误差 */
+    state->last_error = error;
+    state->last_output = output;
+
+    return output;
 }
 
 error_code_t pid_reset_all(void)
@@ -173,13 +252,13 @@ error_code_t pid_reset_all(void)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /* 1. 上升恒定加速度模式: 目标 +0.05m/s² */
-error_code_t pid_mode_up_accel_const(float current_acc_z, float current_height, pwm_out)
+error_code_t pid_mode_up_accel_const(float current_acc_z, float current_height, float *pwm_out)
 {
     (void)current_height; /* 未直接使用高度，但需做安全边界逻辑 */
     if (pwm_out == NULL) return ERR_NULL_POINTER;
     
     float target = 0.05f; /* +0.05 m/s² */
-    *pwm_out =  Accel_controler(target+Global_message[GRAVITY_INDEX], Z_ACCLE_INDEX);
+    *pwm_out = Accel_controler(target + Global_message[GRAVITY_INDEX], Z_ACCLE_INDEX);
     return ERR_OK;
 }
 
