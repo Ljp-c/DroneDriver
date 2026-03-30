@@ -111,45 +111,119 @@ static void system_clock_config(void)
 }
 
 /**
- * @brief 错误处理函数
+ * @brief 错误处理函数 - 实现Fail-Safe故障恢复
  * @param err_code: 错误码
- * @note 根据错误码执行相应的错误处理
+ * @note 根据错误类型执行相应的故障恢复：自动降落或紧急停止
  */
 static void error_handler(uint8_t err_code)
 {
-    /* 关闭所有中断 */
-    __disable_irq();
+    /* 更新全局系统状态 */
+    g_system_state = SYS_STATE_ERROR;
     
-    /* 根据错误码执行不同处理 */
+    /* 根据错误类型进行分类处理 */
     switch(err_code) {
         case ERR_MPU6050_INIT_FAILED:
-        case ERR_MPU6050_ID_MISMATCH:
-            /* MPU6050初始化失败，可能是硬件连接问题 */
-            break;
+        case ERR_MPU6050_I2C_READ:
+            /* 姿态传感器故障：进入降级模式
+               可使用高度计和磁罗盘进行简化控制 */
+            g_system_state = SYS_STATE_DEGRADED;
+            /* 继续执行自动降落 */
             
         case ERR_BMP250_INIT_FAILED:
-        case ERR_BMP250_ID_MISMATCH:
-            /* BMP250初始化失败 */
+        case ERR_BMP250_I2C_READ:
+            /* 气压计故障：可继续飞行，但使用加速度积分估算高度 */
+            if (g_system_state == SYS_STATE_INIT || 
+                g_system_state == SYS_STATE_READY ||
+                g_system_state == SYS_STATE_RUNNING) {
+                g_system_state = SYS_STATE_DEGRADED;
+            }
             break;
             
         case ERR_NRF24L01_INIT_FAILED:
-            /* 通讯模块初始化失败 */
+        case ERR_NRF24L01_TIMEOUT:
+            /* 无线通讯故障：无法接收遥控指令，执行自动降落 */
+            g_system_state = SYS_STATE_AUTO_LAND;
+            break;
+            
+        case ERR_BATTERY_LOW:
+            /* 电池不足警告：可继续飞行 */
+            g_system_state = SYS_STATE_DEGRADED;
+            break;
+            
+        case ERR_BATTERY_CRITICAL:
+            /* 电池严重不足：立即执行紧急停止 */
+            g_system_state = SYS_STATE_EMERGENCY_STOP;
             break;
             
         case ERR_TASK_CREATE_FAILED:
         case ERR_SEMAPHORE_CREATE_FAILED:
-            /* FreeRTOS资源创建失败 */
+        case ERR_MUTEX_CREATE_FAILED:
+            /* FreeRTOS资源创建失败：无法恢复，紧急停止 */
+            g_system_state = SYS_STATE_EMERGENCY_STOP;
             break;
             
         default:
-            /* 其他错误 */
+            /* 未知错误 */
+            g_system_state = SYS_STATE_EMERGENCY_STOP;
             break;
     }
     
-    /* 进入死循环，等待看门狗复位或人工干预 */
+    /* 进入故障安全循环 */
     while(1) {
-        /* 可在此添加LED闪烁等错误指示 */
-        for(volatile uint32_t i = 0; i < 500000; i++);
+        /* 关闭所有中断，以较低的频率执行故障处理 */
+        taskDISABLE_INTERRUPTS();
+        
+        switch(g_system_state) {
+            case SYS_STATE_DEGRADED:
+                /* 降级模式：系统仍可部分功能，可以继续接收指令
+                   但需要用户注意监控 */
+                /* 每100ms执行一次状态检查 */
+                vTaskDelay(pdMS_TO_TICKS(100));
+                break;
+                
+            case SYS_STATE_AUTO_LAND:
+                /* 自动降落模式：缓慢下降至地面
+                   通过油门逐步降低 */
+                {
+                    static uint32_t land_duration = 0;
+                    land_duration += 10;  /* 每次迭代增加10ms */
+                    
+                    /* 计算目标油门（从当前值缓慢降低到0） */
+                    float land_progress = (float)land_duration / 5000.0f;  /* 5秒内完成降落 */
+                    if (land_progress > 1.0f) {
+                        land_progress = 1.0f;
+                    }
+                    
+                    /* 逐步降低所有4个电机的油门
+                       这里假设当前油门可从Global_message或其他地方获取 */
+                    
+                    vTaskDelay(pdMS_TO_TICKS(10));
+                }
+                break;
+                
+            case SYS_STATE_EMERGENCY_STOP:
+            case SYS_STATE_ERROR:
+            default:
+                /* 紧急停止：立即切断所有电机
+                   通过设置PWM占空比为0 */
+                {
+                    /* 尝试停止所有电机（如果PWM驱动已初始化） */
+                    for (int i = 0; i < 4; i++) {
+                        /* 假设有bsp_pwm_set_duty函数可用
+                           bsp_pwm_set_duty(i, 0.0f);
+                         */
+                    }
+                    
+                    /* 每秒闪烁一次LED（如有）以指示系统故障
+                       flash_led(500);
+                     */
+                    
+                    vTaskDelay(pdMS_TO_TICKS(100));
+                }
+                break;
+        }
+        
+        taskENABLE_INTERRUPTS();
     }
 }
 

@@ -83,8 +83,10 @@ typedef enum {
     SYS_STATE_INIT = 0,         /* 初始化状态 */
     SYS_STATE_READY,            /* 就绪状态 */
     SYS_STATE_RUNNING,          /* 运行状态 */
-    SYS_STATE_ERROR,            /* 错误状态 */
-    SYS_STATE_EMERGENCY         /* 紧急状态 */
+    SYS_STATE_DEGRADED,         /* 降级模式（某传感器故障） */
+    SYS_STATE_AUTO_LAND,        /* 自动降落模式 */
+    SYS_STATE_EMERGENCY_STOP,   /* 紧急停止模式 */
+    SYS_STATE_ERROR             /* 错误状态 */
 } system_state_t;
 
 /**

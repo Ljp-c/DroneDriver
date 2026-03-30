@@ -39,7 +39,8 @@ static control_packet_t s_control_cmd;              /**< 控制指令 */
 static volatile bool s_new_control_cmd = false;     /**< 新控制指令标志 */
 
 /* 系统状态 */
-static system_state_t s_system_state = SYSTEM_STATE_INIT;   /**< 系统状态 */
+static system_state_t s_system_state = SYS_STATE_INIT;   /**< 系统状态 */
+volatile system_state_t g_system_state = SYS_STATE_INIT; /**< 全局系统状态 */
 static uint32_t s_system_tick = 0;                  /**< 系统运行时间 */
 static uint32_t s_control_seq = 0;                  /**< 控制序列号 */
 
