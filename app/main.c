@@ -13,6 +13,7 @@
  */
 
 #include "stm32f10x.h"
+#include "stm32f10x_iwdg.h"
 #include "flight_controller.h"
 #include "error_code.h"
 #include "system_types.h"
@@ -38,6 +39,13 @@ int main(void)
     if(err != ERR_OK) {
         error_handler(err);
     }
+    
+    /* 启用独立看门狗 (2.6秒超时) */
+    IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
+    IWDG_SetPrescaler(IWDG_Prescaler_64);
+    IWDG_SetReload(1640);
+    IWDG_ReloadCounter();
+    IWDG_Enable();
     
     /* 启动飞行控制系统（进入FreeRTOS调度） */
     err = flight_controller_start();

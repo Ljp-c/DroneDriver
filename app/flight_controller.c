@@ -18,6 +18,7 @@
 #include "bsp_w25q64.h"
 #include "bsp_nrf24l01.h"
 #include "global_data.h"
+#include "stm32f10x_iwdg.h"
 
 /*==============================================================================
  * 私有变量
@@ -442,6 +443,9 @@ static void battery_task(void *pv_parameters)
         } else {
             s_flight_controller.battery_low = false;
         }
+        
+        /* 喂狗 (Watchdog reset) */
+        IWDG_ReloadCounter();
     }
 }
 
