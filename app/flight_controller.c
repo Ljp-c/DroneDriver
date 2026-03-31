@@ -186,8 +186,10 @@ void MahonyGated_UpdateIMU(float dt)
     /* ========== 1. 加速度门控判断 ========== */
     float acc_norm2 = ax*ax + ay*ay + az*az;
 
+    /* 加速度值单位为m/s^2，在1g(9.8m/s^2)附近应该为9.8^2 ≈ 96.04 */
+    /* 采用0.8g ~ 1.2g的宽松门限: (0.8*9.8)^2 ≈ 61.46, (1.2*9.8)^2 ≈ 138.29 */
     int accel_valid = 0;
-    if (acc_norm2 > 0.7f && acc_norm2 < 1.3f) {
+    if (acc_norm2 > 61.0f && acc_norm2 < 139.0f) {
         accel_valid = 1;
     }
 
