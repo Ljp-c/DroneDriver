@@ -123,7 +123,7 @@ static float get_velocity_from_acceleration(float acc_measure, float dt)
  */
 
  //进行飞控推荐参数初始化
-void MahonyGated_Init(void)
+void MahonyGated_Init(MahonyGated *s)
 {
     s->q0 = 1.0f;
     s->q1 = 0.0f;
@@ -167,17 +167,29 @@ static inline float fast_atan2(float y, float x)
 
     return (y < 0.0f) ? -angle : angle;
 }
-void MahonyGated_UpdateIMU(float dt)
+// 快速asin近似 (使用反正弦多项式逼近)
+static inline float fast_asin(float x) {
+    float negate = (float)(x < 0);
+    x = x >= 0 ? x : -x;
+    float ret = -0.0187293f;
+    ret = ret * x + 0.0742610f;
+    ret = ret * x - 0.2121144f;
+    ret = ret * x + 1.5707288f;
+    ret = 3.14159265358979f * 0.5f - fast_rsqrt(1.0f - x) * ret * (1.0f - x);
+    return ret - 2 * negate * ret;
+}
+
+void MahonyGated_UpdateIMU(MahonyGated *s, float *array, float dt)
 {
 
 
-    float ax =Global_message[X_ACCLE_INDEX];
-    float ay =Global_message[Y_ACCLE_INDEX];
-    float az =Global_message[Z_ACCLE_INDEX];
+    float ax = array[X_ACCLE_INDEX];
+    float ay = array[Y_ACCLE_INDEX];
+    float az = array[Z_ACCLE_INDEX];
 
-    float gx =Global_message[X_GYRO_INDEX];
-    float gy =Global_message[Y_GYRO_INDEX];
-    float gz =Global_message[Z_GYRO_INDEX];
+    float gx = array[X_GYRO_INDEX];
+    float gy = array[Y_GYRO_INDEX];
+    float gz = array[Z_GYRO_INDEX];
 
     float recipNorm;
     float halfvx, halfvy, halfvz;

@@ -187,6 +187,8 @@ void MahonyGated_UpdateIMU(MahonyGated *s,float *array,float dt);
 
 static inline float fast_atan2(float y, float x);
 
+static inline float fast_asin(float x);
+
 void Quaternion_ToEuler(const MahonyGated *s,
                         attitude_t *attitude);
 /*==============================================================================
