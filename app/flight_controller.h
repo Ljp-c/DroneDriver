@@ -40,9 +40,9 @@ extern volatile system_state_t g_system_state;
 /*==============================================================================
  * 宏定义 - 任务栈大小(字) 
  *============================================================================*/
-#define TASK_STACK_SIZE_CONTROL     512     /**< 控制任务栈大小 */
-#define TASK_STACK_SIZE_COMM        384     /**< 通信任务栈大小 */
-#define TASK_STACK_SIZE_SENSOR      384     /**< 传感器任务栈大小 */
+#define TASK_STACK_SIZE_CONTROL     768     /**< 控制任务栈大小 */
+#define TASK_STACK_SIZE_COMM        512     /**< 通信任务栈大小 */
+#define TASK_STACK_SIZE_SENSOR      512     /**< 传感器任务栈大小 */
 #define TASK_STACK_SIZE_LOG         384     /**< 日志任务栈大小 */
 #define TASK_STACK_SIZE_BATTERY     256     /**< 电池监控任务栈大小 */
 
